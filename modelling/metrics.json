@@ -1,0 +1,48 @@
+{
+    "accuracy": 0.9382716049382716,
+    "classification_report": {
+        "Cukup": {
+            "precision": 0.8333333333333334,
+            "recall": 1.0,
+            "f1-score": 0.9090909090909091,
+            "support": 10.0
+        },
+        "Sangat Sejahtera": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 24.0
+        },
+        "Sangat Tidak Sejahtera": {
+            "precision": 1.0,
+            "recall": 0.8888888888888888,
+            "f1-score": 0.9411764705882353,
+            "support": 27.0
+        },
+        "Sejahtera": {
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "f1-score": 0.8,
+            "support": 3.0
+        },
+        "Tidak Sejahtera": {
+            "precision": 0.8421052631578947,
+            "recall": 0.9411764705882353,
+            "f1-score": 0.8888888888888888,
+            "support": 17.0
+        },
+        "accuracy": 0.9382716049382716,
+        "macro avg": {
+            "precision": 0.9350877192982455,
+            "recall": 0.8993464052287582,
+            "f1-score": 0.9078312537136067,
+            "support": 81.0
+        },
+        "weighted avg": {
+            "precision": 0.946285466753303,
+            "recall": 0.9382716049382716,
+            "f1-score": 0.9384417889864513,
+            "support": 81.0
+        }
+    }
+}
