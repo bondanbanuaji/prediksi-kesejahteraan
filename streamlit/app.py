@@ -2,388 +2,252 @@ import streamlit as st
 import pandas as pd
 import joblib
 import os
-import time
 import json
+import plotly.express as px
+import plotly.graph_objects as go
 import matplotlib.pyplot as plt
-import seaborn as sns
+from sklearn.tree import plot_tree
 
-# --- Konfigurasi Page ---
+# =========================================================
+# PAGE CONFIG
+# =========================================================
 st.set_page_config(
-    page_title="Prediksi Kesejahteraan",
-    page_icon="🌟",
+    page_title="Prediksi Kesejahteraan Jawa Barat",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- Path Configuration ---
-# Menggunakan relative path agar portable
+# =========================================================
+# PATH
+# =========================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, '../modelling/rf_model_kesejahteraan.pkl')
-DATASET_PATH = os.path.join(BASE_DIR, '../preprocessing/dataset_preprocessed.csv')
-METRICS_PATH = os.path.join(BASE_DIR, '../modelling/metrics.json')
-IMG_DIR = os.path.join(BASE_DIR, '../modelling')
+MODEL_PATH = os.path.join(BASE_DIR, "../modelling/rf_model_kesejahteraan.pkl")
+DATASET_PATH = os.path.join(BASE_DIR, "../preprocessing/dataset_preprocessed.csv")
+METRICS_PATH = os.path.join(BASE_DIR, "../modelling/metrics.json")
+IMG_DIR = os.path.join(BASE_DIR, "../modelling")
 
-# --- Custom CSS (Rich Aesthetics) ---
-def load_css():
-    st.markdown("""
-        <style>
-        /* Main Container */
-        .main {
-            background-color: #f8f9fa;
-        }
-        
-        /* Headers */
-        h1, h2, h3 {
-            color: #2c3e50;
-            font-family: 'Segoe UI', sans-serif;
-            font-weight: 600;
-        }
-        
-        .main-header {
-            text-align: center;
-            padding: 2rem 0;
-            background: linear-gradient(90deg, #4b6cb7 0%, #182848 100%);
-            color: white;
-            border-radius: 10px;
-            margin-bottom: 2rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        
-        /* Cards & Containers */
-        .stCard {
-            background-color: white;
-            padding: 1.5rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            transition: transform 0.2s;
-        }
-        .stCard:hover {
-            transform: translateY(-5px);
-        }
-        
-        /* Metric Cards */
-        div[data-testid="stMetric"] {
-            background-color: #ffffff;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            border-left: 5px solid #4b6cb7;
-        }
-        
-        /* Sidebar */
-        .css-1d391kg {
-            background-color: #ffffff;
-        }
-        
-        /* Buttons */
-        .stButton>button {
-            width: 100%;
-            border-radius: 20px;
-            font-weight: bold;
-            transition: all 0.3s ease;
-        }
-        .stButton>button:hover {
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-        
-        /* Custom Classes */
-        .prediction-result {
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            font-size: 24px;
-            font-weight: bold;
-            margin-top: 20px;
-            color: white;
-        }
-        .success-bg { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
-        .warning-bg { background: linear-gradient(135deg, #fceabb 0%, #f8b500 100%); color: #333;}
-        .danger-bg { background: linear-gradient(135deg, #cb2d3e 0%, #ef473a 100%); }
-        
-        </style>
-    """, unsafe_allow_html=True)
+# =========================================================
+# CUSTOM CSS
+# =========================================================
+st.markdown("""
+<style>
+.main-header {
+    padding: 3rem;
+    background: linear-gradient(135deg, #283048, #859398);
+    border-radius: 18px;
+    color: white;
+    margin-bottom: 2rem;
+}
+.card {
+    background: white;
+    padding: 1.8rem;
+    border-radius: 18px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+    margin-bottom: 1.5rem;
+}
+.card-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+.result-box {
+    padding: 30px;
+    border-radius: 18px;
+    font-size: 26px;
+    font-weight: bold;
+    text-align: center;
+    color: white;
+}
+.success { background: linear-gradient(135deg,#11998e,#38ef7d); }
+.warning { background: linear-gradient(135deg,#f7971e,#ffd200); color:#333; }
+.danger { background: linear-gradient(135deg,#cb2d3e,#ef473a); }
+</style>
+""", unsafe_allow_html=True)
 
-load_css()
-
-# --- Load Resources (Cached) ---
+# =========================================================
+# LOAD RESOURCE
+# =========================================================
 @st.cache_resource
-def load_resources():
-    try:
-        artifacts = joblib.load(MODEL_PATH)
-        return artifacts
-    except FileNotFoundError:
-        return None
-    except Exception as e:
-        st.error(f"Error loading resources: {e}")
-        return None
+def load_model():
+    return joblib.load(MODEL_PATH)
 
 @st.cache_data
 def load_dataset():
-    try:
-        return pd.read_csv(DATASET_PATH)
-    except:
-        return None
+    return pd.read_csv(DATASET_PATH)
 
 @st.cache_data
 def load_metrics():
-    try:
-        with open(METRICS_PATH, 'r') as f:
-            return json.load(f)
-    except:
-        return None
+    with open(METRICS_PATH) as f:
+        return json.load(f)
 
-# --- Main App Logic ---
-artifacts = load_resources()
+artifacts = load_model()
 df = load_dataset()
 metrics = load_metrics()
 
-# --- Sidebar ---
+# =========================================================
+# FUNGSI SKOR
+# =========================================================
+def hitung_skor_kesejahteraan(P, M, U, Y, S):
+    return ((Y / 1e10) * 4) + (S * 10) - ((M / P) * 50) - ((U / P) * 50)
+
+def tentukan_kategori(skor):
+    if skor < 20:
+        return "Sangat Tidak Sejahtera"
+    elif skor < 40:
+        return "Tidak Sejahtera"
+    elif skor < 60:
+        return "Cukup"
+    elif skor < 120:
+        return "Sejahtera"
+    else:
+        return "Sangat Sejahtera"
+
+def get_css_class(kategori):
+    if kategori in ["Sejahtera", "Sangat Sejahtera"]:
+        return "success"
+    elif kategori == "Cukup":
+        return "warning"
+    else:
+        return "danger"
+
+# =========================================================
+# SIDEBAR
+# =========================================================
 with st.sidebar:
-    st.image("https://img.icons8.com/clouds/200/000000/futures.png", output_format='PNG')
-    st.markdown("### 🧭 Navigasi")
-    
-    # Custom Navigation menu using radio instead of default for better control look
-    # (Optional: can use st.sidebar.title/header)
-    
-    st.info("Aplikasi Prediksi Kesejahteraan Daerah berbasis Machine Learning.")
-    st.markdown("---")
-    st.markdown("**Model:** Random Forest Classifier")
-    if metrics:
-        st.metric("Akurasi Model", f"{metrics['accuracy']*100:.2f}%")
-    st.markdown("---")
-    st.caption("© 2025 Magang PSI STT Wastukancana")
+    st.markdown("## 📊 Welfare Dashboard")
+    menu = st.radio(
+        "Navigasi",
+        ["🏠 Home", "🔮 Prediksi", "📊 Dataset", "📈 Evaluasi Model", "🌳 Pohon Keputusan", "ℹ️ About"]
+    )
+    st.divider()
+    st.metric("Akurasi Model", f"{metrics['accuracy']*100:.2f}%")
 
+# =========================================================
+# HEADER
+# =========================================================
+st.markdown("""
+<div class="main-header">
+    <h1>📊 Prediksi Kesejahteraan Masyarakat Jawa Barat</h1>
+    <p>Perhitungan Skor Manual & Validasi Random Forest</p>
+</div>
+""", unsafe_allow_html=True)
 
-# --- Tabs ---
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "🏠 Home",
-    "📊 Dataset",
-    "📈 Performa",
-    "🌳 Trees",
-    "🔮 Prediksi",
-    "ℹ️ About"
-])
-
-# --- TAB 1: HOME ---
-with tab1:
-    st.markdown('<div class="main-header"><h1>🌟 Dashboard Prediksi Kesejahteraan</h1></div>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.markdown("""
-        ### Selamat Datang! 👋
-        
-        Aplikasi ini dirancang untuk membantu pemerintah dan pemangku kepentingan dalam **memprediksi tingkat kesejahteraan** suatu daerah berdasarkan indikator sosial-ekonomi utama.
-        
-        **Fitur Utama:**
-        - **Akurasi Tinggi:** Menggunakan algoritma Random Forest yang terbukti handal.
-        - **Analisis Mendalam:** Visualisasi data dan feature importance.
-        - **Real-time Prediction:** Masukkan data dan dapatkan hasil seketika.
-        
-        Silahkan jelajahi menu di atas untuk memulai analisis Anda.
-        """)
-        
-    with col2:
-        st.markdown("### 💡 Quick Stats")
-        if df is not None:
-            st.write(f"**Total Data:** {len(df)} Records")
-            st.write(f"**Fitur:** {len(df.columns)-1} Variabel")
-        else:
-            st.warning("Data belum dimuat.")
-
-# --- TAB 2: DATASET ---
-with tab2:
-    st.header("📂 Eksplorasi Dataset")
-    if df is not None:
-        st.caption("Data yang digunakan untuk pelatihan model.")
-        
-        col_desc, col_table = st.columns([1, 2])
-        
-        with col_desc:
-            st.markdown("#### Statistik Deskriptif")
-            st.dataframe(df.describe(), height=400)
-            
-        with col_table:
-            st.markdown("#### Raw Data")
-            st.dataframe(df, use_container_width=True, height=400)
-            
-            # Download Button
-            csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                "📥 Download CSV",
-                csv,
-                "dataset_welfare.csv",
-                "text/csv",
-                key='download-csv'
-            )
-    else:
-        st.error("Dataset tidak ditemukan. Jalankan script preprocessing terlebih dahulu.")
-
-# --- TAB 3: PERFORMA ---
-with tab3:
-    st.header("📈 Evaluasi Model")
-
-    if os.path.exists(IMG_DIR):
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.subheader("Confusion Matrix")
-            cm_path = os.path.join(IMG_DIR, 'confusion_matrix.png')
-            if os.path.exists(cm_path):
-                st.image(cm_path, caption="Confusion Matrix Model", use_container_width=True)
-            else:
-                st.info("Gambar Confusion Matrix belum tersedia.")
-
-        with col2:
-            st.subheader("Feature Importance")
-            fi_path = os.path.join(IMG_DIR, 'feature_importance.png')
-            if os.path.exists(fi_path):
-                st.image(fi_path, caption="Tingkat Kepentingan Fitur", use_container_width=True)
-            else:
-                st.info("Gambar Feature Importance belum tersedia.")
-
-        if metrics:
-            st.markdown("### 📋 Classification Report")
-            report_df = pd.DataFrame(metrics['classification_report']).transpose()
-            st.dataframe(report_df.style.highlight_max(axis=0), use_container_width=True)
-    else:
-        st.error("Directory modelling tidak ditemukan.")
-
-# --- TAB 4: DECISION TREES ---
-with tab4:
-    st.header("🌳 Visualisasi Pohon Keputusan")
-
-    if os.path.exists(IMG_DIR):
-        st.markdown("""
-        ### 📊 Struktur Pohon Keputusan
-        Visualisasi berikut menunjukkan struktur dari salah satu pohon keputusan dalam Random Forest.
-        Setiap node menyajikan keputusan berdasarkan fitur-fitur yang digunakan dalam model.
-        """)
-
-        # Decision Tree Visualization
-        tree_path = os.path.join(IMG_DIR, 'decision_tree_viz.png')
-        if os.path.exists(tree_path):
-            st.image(tree_path, caption="Visualisasi Pohon Keputusan (Pohon Pertama)", use_container_width=True)
-        else:
-            st.info("Visualisasi pohon keputusan belum tersedia.")
-
-        # Performance Metrics Visualization
-        perf_path = os.path.join(IMG_DIR, 'performance_metrics.png')
-        if os.path.exists(perf_path):
-            st.markdown("### 📈 Metrik Kinerja Berdasarkan Kelas")
-            st.image(perf_path, caption="Perbandingan Precision, Recall, dan F1-Score per Kelas", use_container_width=True)
-        else:
-            st.info("Visualisasi metrik kinerja kelas belum tersedia.")
-
-        # Explanation of tree visualization
-        with st.expander("🔍 Penjelasan Visualisasi Pohon Keputusan"):
-            st.markdown("""
-            **Pohon Keputusan** menunjukkan jalur keputusan yang dibuat oleh model:
-
-            - **Node dalam**: Kondisi keputusan berdasarkan fitur
-            - **Node daun**: Prediksi akhir dari model
-            - **Warna**: Mewakili kelas target (semakin gelap, semakin kontras ke kelas tertentu)
-            - **Nilai**: Jumlah sampel yang mencapai node tersebut
-
-            Visualisasi ini membantu memahami bagaimana model membuat keputusan klasifikasi.
-            """)
-    else:
-        st.error("Directory modelling tidak ditemukan.")
-
-# --- TAB 5: PREDIKSI ---
-with tab5:
-    st.header("🔮 Prediksi Kesejahteraan")
-    
-    if artifacts:
-        model = artifacts['model']
-        scaler = artifacts['scaler']
-        mapping = artifacts['mapping']
-        features = artifacts['features']
-        
-        col_input, col_result = st.columns([1, 1], gap="large")
-        
-        with col_input:
-            st.markdown("### 📝 Masukkan Data")
-            with st.form("prediction_form"):
-                # Input fields sesuai features
-                # ['jumlah_penduduk_miskin', 'jumlah_pengangguran_terbuka', 'pdrb_total_adhk', 'harapan_lama_sekolah']
-                
-                v1 = st.number_input("Jumlah Penduduk Miskin", min_value=0, value=10000, step=100)
-                v2 = st.number_input("Jumlah Pengangguran Terbuka", min_value=0, value=5000, step=100)
-                v3 = st.number_input("PDRB Total ADHK (Rp)", min_value=0.0, value=1000000000.0, step=1000000.0, format="%.0f")
-                v4 = st.number_input("Harapan Lama Sekolah (Tahun)", min_value=0.0, max_value=25.0, value=12.0, step=0.1)
-                
-                submitted = st.form_submit_button("🔍 Analisis Sekarang")
-        
-        with col_result:
-            if submitted:
-                # Prepare input
-                input_data = pd.DataFrame([[v1, v2, v3, v4]], columns=features)
-                
-                # Preprocessing input (Scaling)
-                input_scaled = scaler.transform(input_data)
-                
-                # Timer
-                start_time = time.time()
-                
-                # Predict
-                prediction_idx = model.predict(input_scaled)[0]
-                prediction_label = mapping[prediction_idx]
-                
-                end_time = time.time()
-                duration = end_time - start_time
-                
-                st.success(f"Analisis Selesai dalam {duration:.4f} detik")
-                
-                # Logic warna result
-                bg_class = "warning-bg" # default
-                if "Sangat Sejahtera" in prediction_label: bg_class = "success-bg"
-                elif "Sejahtera" in prediction_label: bg_class = "success-bg"
-                elif "Tidak" in prediction_label: bg_class = "danger-bg"
-                
-                st.markdown(f"""
-                <div class="prediction-result {bg_class}">
-                    Status: {prediction_label}
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Show probability if available
-                if hasattr(model, "predict_proba"):
-                    proba = model.predict_proba(input_scaled)[0]
-                    st.markdown("#### Confidence Score:")
-                    
-                    chart_data = pd.DataFrame({
-                        'Status': list(mapping.values()),
-                        'Probability': proba
-                    })
-                    st.bar_chart(chart_data.set_index('Status'))
-
-    else:
-        st.error("Model belum dimuat. Training model terlebih dahulu.")
-
-# --- TAB 6: ABOUT ---
-with tab6:
-    st.header("ℹ️ Tentang Aplikasi")
-    
+# =========================================================
+# HOME
+# =========================================================
+if menu == "🏠 Home":
     st.markdown("""
-    ### Prediksi Kesejahteraan Daerah
-    
-    Aplikasi ini dikembangkan sebagai bagian dari Tugas UAS Machine Learning di STT Wastukancana Purwakarta.
-    
-    **Tujuan:**
-    Memberikan alat bantu analitik untuk mengklasifikasikan tingkat kesejahteraan daerah berdasarkan data BPS.
-    
-    **Teknologi:**
-    - **Python:** Core Logic
-    - **Scikit-Learn:** Machine Learning (Random Forest)
-    - **Streamlit:** User Interface
-    - **Pandas & NumPy:** Data Processing
-    
-    **Pengembang:**
-    - Team Machine Learning Semester 5
-    - *Created with ❤️ by Magang PSI*
+    Aplikasi ini memprediksi tingkat kesejahteraan masyarakat Jawa Barat
+    menggunakan **skor manual sebagai metode utama** dan
+    **Random Forest sebagai validasi Machine Learning**.
     """)
-    
-    st.image("https://streamlit.io/images/brand/streamlit-logo-secondary-colormark-darktext.png", width=200)
 
+# =========================================================
+# PREDIKSI
+# =========================================================
+elif menu == "🔮 Prediksi":
+
+    model = artifacts["model"]
+    scaler = artifacts["scaler"]
+    mapping = artifacts["mapping"]
+    features = artifacts["features"]
+
+    col1, col2 = st.columns([1.2, 1])
+
+    with col1:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="card-title">📝 Input Data</div>', unsafe_allow_html=True)
+
+        with st.form("form"):
+            P = st.number_input("Jumlah Penduduk", 1, 10_000_000, 1_000_000)
+            M = st.number_input("Penduduk Miskin", 0, 1_000_000, 80_000)
+            U = st.number_input("Pengangguran", 0, 1_000_000, 50_000)
+            Y = st.number_input("PDRB ADHK", 0.0, 1e15, 120_000_000_000.0)
+            S = st.selectbox("Skor Pendidikan", [1,2,3,4])
+            submit = st.form_submit_button("🔍 Analisis")
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col2:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="card-title">📌 Hasil</div>', unsafe_allow_html=True)
+
+        if submit:
+            skor = hitung_skor_kesejahteraan(P, M, U, Y, S)
+            kategori = tentukan_kategori(skor)
+            css = get_css_class(kategori)
+
+            input_df = pd.DataFrame([[M, U, Y, S]], columns=features)
+            pred = model.predict(scaler.transform(input_df))[0]
+            kategori_ml = mapping[pred]
+
+            st.markdown(f'<div class="result-box {css}">{kategori}</div>', unsafe_allow_html=True)
+            st.metric("Skor Kesejahteraan", f"{skor:.2f}")
+
+            # ===== RINCIAN & GRAFIK =====
+            pdrb = (Y / 1e10) * 4
+            sekolah = S * 10
+            miskin = (M / P) * 50
+            pengangguran = (U / P) * 50
+
+            komponen_df = pd.DataFrame({
+                "Komponen": ["PDRB", "Pendidikan", "Kemiskinan", "Pengangguran"],
+                "Nilai": [pdrb, sekolah, -miskin, -pengangguran]
+            })
+
+            fig = px.bar(
+                komponen_df,
+                x="Komponen",
+                y="Nilai",
+                text_auto=".2f",
+                title="Kontribusi Komponen Skor"
+            )
+            fig.update_layout(template="plotly_white", height=350)
+            st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# =========================================================
+# DATASET
+# =========================================================
+elif menu == "📊 Dataset":
+    st.dataframe(df, use_container_width=True)
+
+# =========================================================
+# EVALUASI MODEL
+# =========================================================
+elif menu == "📈 Evaluasi Model":
+    st.metric("Akurasi", f"{metrics['accuracy']*100:.2f}%")
+    st.image(os.path.join(IMG_DIR, "confusion_matrix.png"))
+    st.image(os.path.join(IMG_DIR, "feature_importance.png"))
+
+# =========================================================
+# POHON KEPUTUSAN
+# =========================================================
+elif menu == "🌳 Pohon Keputusan":
+    st.subheader("🌳 Pohon Random Forest")
+
+    model = artifacts["model"]
+    idx = st.slider("Pilih indeks pohon", 0, len(model.estimators_)-1, 0)
+
+    fig, ax = plt.subplots(figsize=(22,10))
+    plot_tree(
+        model.estimators_[idx],
+        feature_names=features,
+        class_names=list(mapping.values()),
+        filled=True,
+        rounded=True,
+        ax=ax
+    )
+    st.pyplot(fig)
+
+# =========================================================
+# ABOUT
+# =========================================================
+elif menu == "ℹ️ About":
+    st.markdown("""
+    **Sistem Prediksi Kesejahteraan Jawa Barat**  
+    Metode utama: Skor Manual  
+    Validasi: Random Forest Classifier  
+    """)
